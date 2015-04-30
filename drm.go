@@ -5,13 +5,14 @@ import (
 	"os"
 	"io"
 	"io/ioutil"
-	"bufio"
 	"log"
-	"os/exec"
 	"strings"
 	"net/http"
 	"encoding/json"
+	"crypto/x509"
+	"github.com/barkerd427/dockerclient"
 	"github.com/codegangsta/cli"
+	"crypto/tls"
 )
 
 var repo = "default"
@@ -23,7 +24,29 @@ type containerConfig struct {
 	imageName, containerName, fullImageName string
 }
 
+var docker *dockerclient.DockerClient
+
 func main() {
+	cert, err := tls.LoadX509KeyPair("/Users/db030112/.boot2docker/certs/boot2docker-vm/cert.pem", "/Users/db030112/.boot2docker/certs/boot2docker-vm/key.pem")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	caCert, err := ioutil.ReadFile("/Users/db030112/.boot2docker/certs/boot2docker-vm/ca.pem")
+	if err != nil {
+		log.Fatal(err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      caCertPool,
+	}
+	tlsConfig.BuildNameToCertificate()
+
+	docker, _ = dockerclient.NewDockerClient("tcp://127.0.0.1:2376", tlsConfig)
+
 	app := cli.NewApp()
 	app.Name = "Docker Ruby Manager"
 	app.Usage = "Manage your ruby versions with Docker"
@@ -47,17 +70,20 @@ func main() {
 			Usage:	"Run any ruby type command",
 			Action:	run,
 		},
+		{
+			Name:	"install",
+			Usage:	"Install Ruby versions",
+			Action:	install,
+		},
 	}
 
 	app.Run(os.Args)
 }
 
-func use(c  *cli.Context) {
+func install(c *cli.Context) {
 	ruby := new(rubyConfig)
-	container := new(containerConfig)
-	println("Ruby version: ", c.Args().First())
 	firstArg := c.Args().First()
-	println(firstArg)
+
 	if strings.Contains(firstArg, "@") {
 		rubyParsed := strings.Split(firstArg, "@")
 		ruby.version = rubyParsed[0]
@@ -66,28 +92,58 @@ func use(c  *cli.Context) {
 		ruby.version = firstArg
 		ruby.gemset = "default"
 	}
-	println("Ruby Version: ", ruby.version)
-	println("Ruby Gemset: ", ruby.gemset)
-	versionExistsLocally := versionExistsLocally(ruby.version)
+
 	var imageName string
 	if ruby.version == "default" {
 		imageName = "ruby"
 	} else {
-		if !versionExistsLocally {
-			if !versionExistsRemotely(ruby.version) {
-				log.Fatal("Version does not exist")
-			}
-		}
-
 		imageName = fmt.Sprintf("ruby:%s", ruby.version)
 	}
 
-	if !versionExistsLocally {
+	existsLocally := versionExistsLocally(imageName)
+
+	if !existsLocally {
+		if !versionExistsRemotely(ruby.version) {
+			log.Fatal("Version does not exist")
+		}
+	}
+
+	if !existsLocally {
 		fmt.Printf("Retrieving version [%s] from repository...\n", ruby.version)
-		command := exec.Command("docker", "pull", imageName)
-		command.Stdout = os.Stdout
-		command.Stderr = os.Stderr
-		command.Run()
+		docker.PullImage(imageName, nil)
+	}
+
+	if versionExistsLocally(imageName) {
+		fmt.Printf("Ruby [%s] is ready to use!", imageName)
+	} else {
+		fmt.Printf("Ruby [%s] was not successfully installed. Please try downloading it manually using `docker pull %s`", imageName, imageName)
+	}
+}
+
+func use(c  *cli.Context) {
+	ruby := new(rubyConfig)
+	container := new(containerConfig)
+	firstArg := c.Args().First()
+
+	if strings.Contains(firstArg, "@") {
+		rubyParsed := strings.Split(firstArg, "@")
+		ruby.version = rubyParsed[0]
+		ruby.gemset = rubyParsed[1]
+	} else {
+		ruby.version = firstArg
+		ruby.gemset = "default"
+	}
+
+	var imageName string
+	if ruby.version == "default" {
+		imageName = "ruby"
+	} else {
+		imageName = fmt.Sprintf("ruby:%s", ruby.version)
+	}
+
+	versionExistsLocally := versionExistsLocally(imageName)
+	if !versionExistsLocally {
+		log.Fatal("Version is not available locally. You must install it first.")
 	}
 
 	container.imageName = imageName
@@ -104,11 +160,9 @@ func use(c  *cli.Context) {
 		stageRubyInstance(ruby, imageName, container)
 	}
 
-	command := exec.Command("docker", "exec", "-it", container.containerName, "/bin/bash")
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
-	command.Stdin = os.Stdin
-	command.Run()
+	fmt.Printf("DRM_CONTAINER_NAME=%s\n", container.containerName)
+	fmt.Printf("DRM_IMAGE_NAME=%s\n", container.imageName)
+	fmt.Printf("DRM_FULL_IMAGE_NAME=%s\n", container.fullImageName)
 }
 
 func versionExistsRemotely(version string) bool {
@@ -119,6 +173,7 @@ func versionExistsRemotely(version string) bool {
 		fmt.Println("error occured")
 		fmt.Printf("%s", err)
 	}
+
 	defer resp.Body.Close()
 	contents, err := ioutil.ReadAll(resp.Body)
 	decoder := json.NewDecoder(strings.NewReader(string(contents)))
@@ -136,113 +191,104 @@ func versionExistsRemotely(version string) bool {
 			}
 		}
 	}
+
 	return versionExists
 }
 
-func versionExistsLocally(version string) bool {
+func versionExistsLocally(imageName string) bool {
 	var versionExists bool
-	cmd := exec.Command("docker", "images")
-	cmdReader, err := cmd.StdoutPipe()
-	if err != nil {
-		fmt.Println("error occured")
-		fmt.Printf("%s", err)
-	}
-
-	scanner := bufio.NewScanner(cmdReader)
-	go func() {
-		for scanner.Scan() {
-			fields := strings.Fields(scanner.Text())
-			if strings.Contains(fields[0], "ruby") && strings.Contains(fields[1], version) {
+	images, _ := docker.ListImages()
+	for _, image := range images {
+		for _, name := range image.RepoTags {
+			if name == imageName {
 				versionExists = true
 			}
 		}
-	}()
-
-	err = cmd.Start()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error starting Cmd", err)
-		os.Exit(1)
-	}
-
-	err = cmd.Wait()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error waiting for Cmd", err)
-		os.Exit(1)
 	}
 
 	return versionExists
 }
 
 func rubyAlreadyRunning(containerName string) bool {
-	out, err := exec.Command("docker", "ps", "-a", "--filter", fmt.Sprintf("name=%s", containerName)).Output()
-	if err != nil {
-		log.Fatal(err)
-	}
+	names := []string{containerName}
+	filters := map[string][]string{"name": names}
 
-	exists := strings.Contains(string(out), containerName)
+	filter, _ := json.Marshal(filters)
+	containers, _ := docker.ListContainers(true, false, string(filter))
+	exists := len(containers) >= 1
 
-	out, err = exec.Command("docker", "ps", "--filter", fmt.Sprintf("name=%s", containerName)).Output()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	running := strings.Contains(string(out), containerName)
+	filters["status"] = []string{"running"}
+	filter, _ = json.Marshal(filters)
+	containers, _ = docker.ListContainers(true, false, string(filter))
+	running := len(containers) >= 1
 
 	if exists && !running {
-		out, err = exec.Command("docker", "start", containerName).Output()
-		if err != nil {
-			log.Fatal(err)
-		}
+		docker.StartContainer(containerName, nil)
 
-		out, err = exec.Command("docker", "ps", "--filter", fmt.Sprintf("name=%s", containerName)).Output()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		running = strings.Contains(string(out), containerName)
+		containers, _ = docker.ListContainers(true, false, string(filter))
+		running = len(containers) >= 1
 	}
 
 	if exists && !running {
-		out, err = exec.Command("docker", "rm", "-f", containerName).Output()
-		if err != nil {
-			log.Fatal(err)
-		}
+		docker.RemoveContainer(containerName, true, false)
 	}
 
 	return exists && running
 }
 
 func stageRubyInstance(ruby *rubyConfig, imageName string, container *containerConfig) {
-	cmd := "docker"
-	var cmdArgs []string
-
-	cmdArgs = append(cmdArgs, "run")
-	cmdArgs = append(cmdArgs, "-d")
-	cmdArgs = append(cmdArgs, "--name")
-	cmdArgs = append(cmdArgs, container.containerName)
-
 	dir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	home := os.Getenv("HOME")
-	cmdArgs = append(cmdArgs, "-v")
-	cmdArgs = append(cmdArgs, fmt.Sprintf("%s:%s", home, home))
-	cmdArgs = append(cmdArgs, "-w")
-	cmdArgs = append(cmdArgs, dir)
-	cmdArgs = append(cmdArgs, container.fullImageName)
-	cmdArgs = append(cmdArgs, "sleep")
-	cmdArgs = append(cmdArgs, "infinity")
 
-	fmt.Printf("%s", cmdArgs)
+	config := &dockerclient.ContainerConfig{
+		Cmd: []string{"sleep", "infinity"},
+		AttachStdin: false,
+		AttachStderr: false,
+		AttachStdout: false,
+		Tty: false,
+		WorkingDir: dir,
+		Image: container.fullImageName,
+		HostConfig: dockerclient.HostConfig{
+			Binds: []string{ fmt.Sprintf("%s:%s", home, home) },
+			NetworkMode: "bridge",
+		},
+	}
 
-	command := exec.Command(cmd, cmdArgs...)
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
-	command.Run()
+	docker.CreateContainer(config, container.containerName)
+	docker.StartContainer(container.containerName, nil)
 }
 
 func run(c  *cli.Context) {
+	container := new(containerConfig)
 
+	container.containerName = os.Getenv("DRM_CONTAINER_NAME")
+	container.imageName = os.Getenv("DRM_IMAGE_NAME")
+	container.fullImageName = os.Getenv("DRM_FULL_IMAGE_NAME")
+	log.Printf("Container name: %s\n", container.containerName)
+
+	if container.containerName == "" {
+		log.Fatalf("You have to run the command `drm use %s` prior to using the `run` command for this ruby %s", container.imageName, container.containerName)
+	}
+
+	if !rubyAlreadyRunning(container.containerName) {
+		log.Fatalf("The ruby is not setup properly. Please run the `drm use %s` command for this ruby %s", container.imageName, container.containerName)
+	}
+
+	command := c.Args()
+	log.Printf("Command: %s\n", command)
+	execConfig := &dockerclient.ExecConfig{
+		AttachStdin:	true,
+		AttachStdout:	true,
+		AttachStderr:	true,
+		Tty:			true,
+		Container:		container.containerName,
+		Cmd:			command,
+		Detach:			false,
+	}
+	output, _ := docker.Exec(execConfig)
+	log.Print(output)
 }

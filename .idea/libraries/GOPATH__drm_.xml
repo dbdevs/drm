@@ -7,27 +7,31 @@
     <JAVADOC />
     <SOURCES />
     <excluded>
-      <root url="file://$PROJECT_DIR$/../../docker/docker/vendor/src/github.com/godbus/dbus/_examples" />
+      <root url="file://$PROJECT_DIR$/.git" />
       <root url="file://$PROJECT_DIR$/../../docker/docker/hack/make/.build-deb" />
       <root url="file://$PROJECT_DIR$/../../docker/libtrust/.git" />
-      <root url="file://$PROJECT_DIR$/../../docker/docker/pkg/tarsum/testdata" />
-      <root url="file://$PROJECT_DIR$/../../gorilla/mux/.git" />
       <root url="file://$PROJECT_DIR$/../../docker/docker/pkg/archive/testdata" />
-      <root url="file://$PROJECT_DIR$/../../../.idea" />
       <root url="file://$PROJECT_DIR$/../../docker/docker/vendor/src/code.google.com/p/go/src/pkg/archive/tar/testdata" />
+      <root url="file://$PROJECT_DIR$/../../../.idea" />
       <root url="file://$PROJECT_DIR$/../../docker/distribution/Godeps/_workspace" />
-      <root url="file://$PROJECT_DIR$/../../tchap/go-patricia/.git" />
       <root url="file://$PROJECT_DIR$/../../docker/libcontainer/vendor/src/github.com/godbus/dbus/_examples" />
       <root url="file://$PROJECT_DIR$/../../docker/docker/docs/sources/reference/api/_static" />
       <root url="file://$PROJECT_DIR$/../../docker/docker/vendor/src/code.google.com/p/go.net/html/testdata" />
+      <root url="file://$PROJECT_DIR$/../../samalba/dockerclient/.git" />
       <root url="file://$PROJECT_DIR$/../../Sirupsen/logrus/.git" />
       <root url="file://$PROJECT_DIR$/../../docker/distribution/.git" />
+      <root url="file://$PROJECT_DIR$/.bundle" />
+      <root url="file://$PROJECT_DIR$" />
+      <root url="file://$PROJECT_DIR$/.idea" />
+      <root url="file://$PROJECT_DIR$/../../docker/docker/vendor/src/github.com/godbus/dbus/_examples" />
+      <root url="file://$PROJECT_DIR$/../../docker/docker/pkg/tarsum/testdata" />
+      <root url="file://$PROJECT_DIR$/../../barkerd427/dockerclient/.git" />
+      <root url="file://$PROJECT_DIR$/../../gorilla/mux/.git" />
+      <root url="file://$PROJECT_DIR$/../../tchap/go-patricia/.git" />
       <root url="file://$PROJECT_DIR$/../../gorilla/context/.git" />
       <root url="file://$PROJECT_DIR$/../../codegangsta/cli/.git" />
       <root url="file://$PROJECT_DIR$/../../jlhawn/go-crypto/.git" />
-      <root url="file://$PROJECT_DIR$" />
       <root url="file://$PROJECT_DIR$/../../docker/libcontainer/.git" />
-      <root url="file://$PROJECT_DIR$/.idea" />
       <root url="file://$PROJECT_DIR$/../../docker/docker/.git" />
     </excluded>
   </library>
