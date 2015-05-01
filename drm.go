@@ -69,11 +69,22 @@ func main() {
 			Name:	"run",
 			Usage:	"Run any ruby type command",
 			Action:	run,
+			SkipFlagParsing: true,
 		},
 		{
 			Name:	"install",
 			Usage:	"Install Ruby versions",
 			Action:	install,
+		},
+		{
+			Name:	"destroy",
+			Usage:	"Destroy a running ruby and gemset",
+			Action:	destroy,
+		},
+		{
+			Name:	"uninstall",
+			Usage:	"Uninstall an installed ruby",
+			Action: uninstall,
 		},
 	}
 
@@ -163,6 +174,84 @@ func use(c  *cli.Context) {
 	fmt.Printf("DRM_CONTAINER_NAME=%s\n", container.containerName)
 	fmt.Printf("DRM_IMAGE_NAME=%s\n", container.imageName)
 	fmt.Printf("DRM_FULL_IMAGE_NAME=%s\n", container.fullImageName)
+}
+
+func run(c  *cli.Context) {
+	container := new(containerConfig)
+
+	container.containerName = os.Getenv("DRM_CONTAINER_NAME")
+	container.imageName = os.Getenv("DRM_IMAGE_NAME")
+	container.fullImageName = os.Getenv("DRM_FULL_IMAGE_NAME")
+	log.Printf("Container name: %s\n", container.containerName)
+
+	if container.containerName == "" {
+		log.Fatalf("You have to run the command `drm use %s` prior to using the `run` command for this ruby %s", container.imageName, container.containerName)
+	}
+
+	if !rubyAlreadyRunning(container.containerName) {
+		log.Fatalf("The ruby is not setup properly. Please run the `drm use %s` command for this ruby %s", container.imageName, container.containerName)
+	}
+
+	command := c.Args()
+	log.Printf("Command: %s\n", command)
+	execConfig := &dockerclient.ExecConfig{
+		AttachStdin:	true,
+		AttachStdout:	true,
+		AttachStderr:	true,
+		Tty:			true,
+		Container:		container.containerName,
+		Cmd:			command,
+		Detach:			false,
+	}
+	output, _ := docker.Exec(execConfig)
+	log.Print(output)
+}
+
+func destroy(c *cli.Context) {
+	container := new(containerConfig)
+
+	if len(c.Args()) == 0 {
+		container.containerName = os.Getenv("DRM_CONTAINER_NAME")
+	} else {
+		ruby := new(rubyConfig)
+		firstArg := c.Args().First()
+
+		if strings.Contains(firstArg, "@") {
+			rubyParsed := strings.Split(firstArg, "@")
+			ruby.version = rubyParsed[0]
+			ruby.gemset = rubyParsed[1]
+		} else {
+			ruby.version = firstArg
+			ruby.gemset = "default"
+		}
+
+		container.containerName = fmt.Sprintf("drm_%s_%s", ruby.version, ruby.gemset)
+	}
+
+	docker.RemoveContainer(container.containerName, true, false)
+}
+
+func uninstall(c *cli.Context) {
+	ruby := new(rubyConfig)
+	firstArg := c.Args().First()
+
+	if strings.Contains(firstArg, "@") {
+		rubyParsed := strings.Split(firstArg, "@")
+		ruby.version = rubyParsed[0]
+		ruby.gemset = rubyParsed[1]
+	} else {
+		ruby.version = firstArg
+		ruby.gemset = "default"
+	}
+
+	var imageName string
+	if ruby.version == "default" {
+		imageName = "ruby"
+	} else {
+		imageName = fmt.Sprintf("ruby:%s", ruby.version)
+	}
+
+	docker.RemoveImage(imageName)
 }
 
 func versionExistsRemotely(version string) bool {
@@ -260,35 +349,4 @@ func stageRubyInstance(ruby *rubyConfig, imageName string, container *containerC
 
 	docker.CreateContainer(config, container.containerName)
 	docker.StartContainer(container.containerName, nil)
-}
-
-func run(c  *cli.Context) {
-	container := new(containerConfig)
-
-	container.containerName = os.Getenv("DRM_CONTAINER_NAME")
-	container.imageName = os.Getenv("DRM_IMAGE_NAME")
-	container.fullImageName = os.Getenv("DRM_FULL_IMAGE_NAME")
-	log.Printf("Container name: %s\n", container.containerName)
-
-	if container.containerName == "" {
-		log.Fatalf("You have to run the command `drm use %s` prior to using the `run` command for this ruby %s", container.imageName, container.containerName)
-	}
-
-	if !rubyAlreadyRunning(container.containerName) {
-		log.Fatalf("The ruby is not setup properly. Please run the `drm use %s` command for this ruby %s", container.imageName, container.containerName)
-	}
-
-	command := c.Args()
-	log.Printf("Command: %s\n", command)
-	execConfig := &dockerclient.ExecConfig{
-		AttachStdin:	true,
-		AttachStdout:	true,
-		AttachStderr:	true,
-		Tty:			true,
-		Container:		container.containerName,
-		Cmd:			command,
-		Detach:			false,
-	}
-	output, _ := docker.Exec(execConfig)
-	log.Print(output)
 }

@@ -2,7 +2,7 @@
 
 function drm()
 {
-  output="$(~/gocode/bin/drm "$@")"
+  output="$(~/.drm/bin/drm "$@")"
   if [[ $? -ne 0 ]]; then
     echo "The command did not succeed. Please try again."
     return $?
@@ -12,13 +12,10 @@ function drm()
 
   for line in $lines; do
     if [[ "$line" == "DRM_CONTAINER_NAME="* ]]; then
-      echo "Found it: $line"
       export $line
     elif [[ "$line" == "DRM_IMAGE_NAME="* ]]; then
-      echo "Found it: $line"
       export $line
     elif [[ "$line" == "DRM_FULL_IMAGE_NAME="* ]]; then
-      echo "Found it: $line"
       export $line
     else
       echo $line
