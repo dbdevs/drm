@@ -12,7 +12,7 @@ It is assumed that you have installed Docker on your machine. I have currently o
 Simply run this command to install DRM on your Mac. It will setup the function mappings for you. 
 
 ```bash
-docker run --rm -e USER_DIR=$HOME -v ~/:$HOME drm mac
+docker run --rm -e USER_DIR=$HOME -v ~/:$HOME dbdevs/drm mac
 ```
 
 ## Commands
