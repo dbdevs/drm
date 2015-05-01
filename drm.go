@@ -197,7 +197,12 @@ func use(c  *cli.Context) {
 	}
 
 	container.imageName = imageName
-	container.containerName = fmt.Sprintf("drm_%s_%s_%s", ruby.version, ruby.gemset, repo)
+	if repo == "" {
+		container.containerName = fmt.Sprintf("drm_%s_%s", ruby.version, ruby.gemset)
+	} else {
+		container.containerName = fmt.Sprintf("drm_%s_%s_%s", ruby.version, ruby.gemset, repo)
+	}
+
 	if repo != "" {
 		container.fullImageName = fmt.Sprintf("%s/%s", repo, imageName)
 	} else {
@@ -247,6 +252,7 @@ func run(c  *cli.Context) {
 }
 
 func destroy(c *cli.Context) {
+	repo := c.String("repo")
 	container := new(containerConfig)
 
 	if len(c.Args()) == 0 {
@@ -263,14 +269,19 @@ func destroy(c *cli.Context) {
 			ruby.version = firstArg
 			ruby.gemset = "default"
 		}
+if repo == "" {
+	container.containerName = fmt.Sprintf("drm_%s_%s", ruby.version, ruby.gemset)
+} else {
+	container.containerName = fmt.Sprintf("drm_%s_%s_%s", ruby.version, ruby.gemset, repo)
+}
 
-		container.containerName = fmt.Sprintf("drm_%s_%s", ruby.version, ruby.gemset)
 	}
 
 	docker.RemoveContainer(container.containerName, true, false)
 }
 
 func uninstall(c *cli.Context) {
+	repo := c.String("repo")
 	ruby := new(rubyConfig)
 	firstArg := c.Args().First()
 
@@ -290,7 +301,14 @@ func uninstall(c *cli.Context) {
 		imageName = fmt.Sprintf("ruby:%s", ruby.version)
 	}
 
-	docker.RemoveImage(imageName)
+	var fullImageName string
+	if repo != "" {
+		fullImageName = fmt.Sprintf("%s/%s", repo, imageName)
+	} else {
+		fullImageName = fmt.Sprintf("%s", imageName)
+	}
+
+	docker.RemoveImage(fullImageName)
 }
 
 func versionExistsRemotely(repo, version string) bool {
