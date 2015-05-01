@@ -2,7 +2,7 @@
 
 docker build -f Dockerfile -t drm_mac .
 mkdir -p ~/.drm/bin
-docker run --rm -v ~/.drm/bin:/.drm/bin -w /.drm/bin drm_mac
+docker run --rm -v ~/.drm/bin:/.drm/bin -w /.drm/bin drm_mac $1
 cp function.sh ~/.drm
 chmod +x ~/.drm/bin/drm
 
