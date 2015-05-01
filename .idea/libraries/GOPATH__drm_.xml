@@ -20,7 +20,6 @@
       <root url="file://$PROJECT_DIR$/../../samalba/dockerclient/.git" />
       <root url="file://$PROJECT_DIR$/../../Sirupsen/logrus/.git" />
       <root url="file://$PROJECT_DIR$/../../docker/distribution/.git" />
-      <root url="file://$PROJECT_DIR$/.bundle" />
       <root url="file://$PROJECT_DIR$" />
       <root url="file://$PROJECT_DIR$/.idea" />
       <root url="file://$PROJECT_DIR$/../../docker/docker/vendor/src/github.com/godbus/dbus/_examples" />
