@@ -26,12 +26,18 @@ type containerConfig struct {
 var docker *dockerclient.DockerClient
 
 func main() {
-	cert, err := tls.LoadX509KeyPair("/Users/db030112/.boot2docker/certs/boot2docker-vm/cert.pem", "/Users/db030112/.boot2docker/certs/boot2docker-vm/key.pem")
+	
+	home := os.Getenv("HOME")
+	certFile = fmt.Sprintf("%s.boot2docker/certs/boot2docker-vm/cert.pem", home)
+	keyFile = fmt.Sprintf("%s.boot2docker/certs/boot2docker-vm/key.pem", home)
+	caFile = fmt.Sprintf("%s.boot2docker/certs/boot2docker-vm/ca.pem", home)
+	
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	caCert, err := ioutil.ReadFile("/Users/db030112/.boot2docker/certs/boot2docker-vm/ca.pem")
+	caCert, err := ioutil.ReadFile(caFile)
 	if err != nil {
 		log.Fatal(err)
 	}
