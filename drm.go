@@ -28,9 +28,9 @@ var docker *dockerclient.DockerClient
 func main() {
 	
 	home := os.Getenv("HOME")
-	certFile := fmt.Sprintf("%s.boot2docker/certs/boot2docker-vm/cert.pem", home)
-	keyFile := fmt.Sprintf("%s.boot2docker/certs/boot2docker-vm/key.pem", home)
-	caFile := fmt.Sprintf("%s.boot2docker/certs/boot2docker-vm/ca.pem", home)
+	certFile := fmt.Sprintf("%s/.boot2docker/certs/boot2docker-vm/cert.pem", home)
+	keyFile := fmt.Sprintf("%s/.boot2docker/certs/boot2docker-vm/key.pem", home)
+	caFile := fmt.Sprintf("%s/.boot2docker/certs/boot2docker-vm/ca.pem", home)
 	
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
